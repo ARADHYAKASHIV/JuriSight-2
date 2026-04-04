@@ -1,4 +1,4 @@
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { AIService } from '@/services/AIService'
 import { DocumentProcessor } from '@/services/DocumentProcessor'
 import { AppError } from '@/middleware/errorHandler'
@@ -32,38 +32,32 @@ export class VectorService {
       const chunks = this.documentProcessor.chunkDocument(content, 1000, 200)
       
       // Generate embeddings for each chunk
-      const embeddings = []
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i]
         
         try {
           const embeddingResult = await this.aiService.generateEmbedding(chunk)
           
-          embeddings.push({
-            documentId,
-            chunkIndex: i,
-            content: chunk,
-            embedding: `[${embeddingResult.embedding.join(',')}]`, // Convert to string for storage
-            metadata: {
-              model: embeddingResult.model,
-              usage: embeddingResult.usage,
-              chunkLength: chunk.length,
-            },
+          const vectorStr = `[${embeddingResult.embedding.join(',')}]`
+          const metaStr = JSON.stringify({
+            model: embeddingResult.model,
+            usage: embeddingResult.usage,
+            chunkLength: chunk.length,
           })
+
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO document_embeddings (id, "documentId", "chunkIndex", content, embedding, metadata, "createdAt")
+            VALUES (gen_random_uuid()::text, $1, $2, $3, $4::vector, $5::jsonb, NOW())
+          `, documentId, i, chunk, vectorStr, metaStr)
+          
         } catch (error) {
           logger.warn(`Failed to generate embedding for chunk ${i} of document ${documentId}:`, error)
           continue
         }
       }
 
-      // Save embeddings to database
-      if (embeddings.length > 0) {
-        await prisma.documentEmbedding.createMany({
-          data: embeddings,
-        })
-        
-        logger.info(`Created ${embeddings.length} embeddings for document ${documentId}`)
-      }
+      // Final logging since we inserted sequentially
+      logger.info(`Created embeddings for document ${documentId}`)
     } catch (error) {
       logger.error('Error creating embeddings:', error)
       throw new AppError('Failed to create embeddings', 500, 'EMBEDDING_CREATION_ERROR')
@@ -86,21 +80,21 @@ export class VectorService {
       const params: any[] = [queryVector, threshold, limit]
       
       if (documentIds && documentIds.length > 0) {
-        whereClause = `AND document_id = ANY($4)`
+        whereClause = `AND "documentId" = ANY($4)`
         params.push(documentIds)
       }
 
       // Perform vector similarity search using raw SQL
-      // Note: This is a simplified approach. In production, you'd use proper pgvector operators
+      // Using pgvector cosine distance operator <=> instead of EUCLIDEAN <-> inside cosine similarity math
       const rawQuery = `
         SELECT 
-          document_id,
-          chunk_index,
+          "documentId",
+          "chunkIndex",
           content,
-          1 - (embedding <-> $1::vector) as similarity,
+          1 - (embedding <=> $1::vector) as similarity,
           metadata
         FROM document_embeddings
-        WHERE 1 - (embedding <-> $1::vector) > $2
+        WHERE 1 - (embedding <=> $1::vector) > $2
         ${whereClause}
         ORDER BY similarity DESC
         LIMIT $3
@@ -110,8 +104,8 @@ export class VectorService {
         const results = await prisma.$queryRawUnsafe(rawQuery, ...params) as any[]
         
         return results.map(row => ({
-          documentId: row.document_id,
-          chunkIndex: row.chunk_index,
+          documentId: row.documentId,
+          chunkIndex: row.chunkIndex,
           content: row.content,
           similarity: parseFloat(row.similarity),
           metadata: row.metadata,

@@ -27,8 +27,14 @@ class ApiClient {
   private client: AxiosInstance
 
   constructor() {
+    // In dev, VITE_API_URL is unset so we proxy via /api
+    // In prod, VITE_API_URL = 'https://api.example.com' → append /api
+    const base = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/api`
+      : '/api'
+
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || '/api',
+      baseURL: base,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',

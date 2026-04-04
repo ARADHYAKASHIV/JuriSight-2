@@ -1,0 +1,13 @@
+﻿[33mwarn[39m: Google OAuth credentials not configured or are placeholders. Google Sign-In will be unavailable. {"service":"jurisight-backend","timestamp":"2026-04-01 01:39:54"}
+[33mwarn[39m: No AI service API keys configured {"service":"jurisight-backend","timestamp":"2026-04-01 01:39:55"}
+[33mwarn[39m: No AI service API keys configured {"service":"jurisight-backend","timestamp":"2026-04-01 01:39:55"}
+[33mwarn[39m: No AI service API keys configured {"service":"jurisight-backend","timestamp":"2026-04-01 01:39:55"}
+[32minfo[39m: Connected to Redis {"service":"jurisight-backend","timestamp":"2026-04-01 01:39:55"}
+[31merror[39m: Failed to start server: error: Environment variable not found: DATABASE_URL.
+  -->  schema.prisma:14
+   | 
+13 |   provider   = "postgresql"
+14 |   url        = env("DATABASE_URL")
+   | 
+
+Validation Error Count: 1 {"clientVersion":"5.22.0","errorCode":"P1012","name":"PrismaClientInitializationError","service":"jurisight-backend","stack":"PrismaClientInitializationError: error: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:14\n   | \n13 |   provider   = \"postgresql\"\n14 |   url        = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1\n    at t (E:\\code\\MAJOR\\JuriSight\\node_modules\\@prisma\\client\\runtime\\library.js:112:2488)\n    at async startServer (E:\\code\\MAJOR\\JuriSight\\apps\\backend\\src\\index.ts:156:5)","timestamp":"2026-04-01 01:39:55"}

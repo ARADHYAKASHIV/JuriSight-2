@@ -1,4 +1,4 @@
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { StorageService } from '@/services/StorageService'
 import { DocumentProcessor } from '@/services/DocumentProcessor'
 import { AppError } from '@/middleware/errorHandler'
@@ -364,8 +364,8 @@ export class DocumentService {
 
       // Check if user can delete (must be uploader, workspace admin, or system admin)
       const canDelete = userRole === UserRole.ADMIN || 
-                       document.uploadedBy.id === userId ||
-                       await this.isWorkspaceAdmin(userId, document.workspace.id)
+                       document.uploadedById === userId ||
+                       await this.isWorkspaceAdmin(userId, document.workspaceId)
 
       if (!canDelete) {
         throw new AppError('Insufficient permissions to delete document', 403, 'INSUFFICIENT_PERMISSIONS')
@@ -433,40 +433,45 @@ export class DocumentService {
         throw new AppError('Document not found', 404, 'DOCUMENT_NOT_FOUND')
       }
 
-      // This would integrate with AI service
-      // For now, return mock analysis
-      const analysis = {
-        summary: 'Document analysis will be implemented with AI service integration.',
-        keyPoints: ['Key point 1', 'Key point 2', 'Key point 3'],
-        entities: [],
-        confidence: 0.85,
-        processingTime: 1500,
-      }
+      // Instead of synchronous analysis, enqueue a background job. Wait, we need the extracted text.
+      // Assuming extractedText is stored in document.content as per uploadDocument.
+      const { queueDocumentAnalysis } = await import('@/queues/documentQueue')
+      
+      const job = await queueDocumentAnalysis({
+        documentId: document.id,
+        userId,
+        extractedText: document.content || null,
+      })
 
       // Log analysis activity
       await prisma.userActivity.create({
         data: {
           userId,
-          workspaceId: document.workspace.id,
+          workspaceId: document.workspaceId,
           type: UserActivityType.DOCUMENT_ANALYZE,
           entityType: 'document',
           entityId: document.id,
           metadata: {
             documentTitle: document.title,
-            analysisType: 'ai_analysis',
+            analysisType: 'async_ai_analysis',
+            jobId: job.id,
           },
         },
       })
 
-      return analysis
+      return {
+        jobId: job.id,
+        status: 'queued',
+        message: 'Document analysis queued successfully. This may take a few moments.',
+      }
     } catch (error) {
-      logger.error('Error analyzing document:', error)
+      logger.error('Error queuing document analysis:', error)
       
       if (error instanceof AppError) {
         throw error
       }
       
-      throw new AppError('Failed to analyze document', 500, 'DOCUMENT_ANALYSIS_ERROR')
+      throw new AppError('Failed to queue document analysis', 500, 'DOCUMENT_ANALYSIS_ERROR')
     }
   }
 

@@ -1,12 +1,19 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// NOTE: dotenv is loaded by src/register.ts BEFORE this module is required.
+//       Do NOT add dotenv.config() calls here — they will run too late (after
+//       all imports are hoisted).
+// ──────────────────────────────────────────────────────────────────────────────
+
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
-import { config } from 'dotenv'
-import path from 'path'
-import { PrismaClient } from '@prisma/client'
-import { createClient } from 'redis'
+import passport from 'passport'
+
+// Shared clients (no circular deps)
+export { prisma, redis } from '@/lib/clients'
+import { prisma, redis } from '@/lib/clients'
 
 import { errorHandler } from '@/middleware/errorHandler'
 import { requestLogger } from '@/middleware/requestLogger'
@@ -19,17 +26,8 @@ import comparisonRoutes from '@/routes/comparisonRoutes'
 import analyticsRoutes from '@/routes/analyticsRoutes'
 import { logger } from '@/utils/logger'
 
-// Load environment variables from root .env file
-config({ path: '../../.env' })
-
-// Initialize clients
-export const prisma = new PrismaClient({
-  log: ['query', 'error', 'warn'],
-})
-
-export const redis = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-})
+// Initialize queues & workers (after env is loaded)
+import '@/queues/documentQueue'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -80,6 +78,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 // Logging middleware
 app.use(requestLogger)
+
+// Passport (OAuth)
+app.use(passport.initialize())
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -141,9 +142,14 @@ app.use(errorHandler)
 // Initialize database and start server
 async function startServer() {
   try {
-    // Connect to Redis
-    await redis.connect()
-    logger.info('Connected to Redis')
+    // Connect to Redis (Optional in development)
+    try {
+      await redis.connect()
+      logger.info('Connected to Redis')
+    } catch (redisError) {
+      logger.warn('Failed to connect to Redis. Background queues and caching will be disabled.')
+      process.env.REDIS_DISABLED = 'true'
+    }
 
     // Connect to database
     await prisma.$connect()
@@ -153,9 +159,12 @@ async function startServer() {
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`)
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
+      if (process.env.REDIS_DISABLED === 'true') {
+        logger.warn('RUNNING WITHOUT REDIS: Document processing and advanced caching are unavailable.')
+      }
     })
   } catch (error) {
-    logger.error('Failed to start server:', error)
+    logger.error('Failed to start server (Critical Error):', error)
     process.exit(1)
   }
 }
@@ -165,7 +174,9 @@ process.on('SIGINT', async () => {
   logger.info('Shutting down gracefully...')
   
   try {
-    await redis.disconnect()
+    if (process.env.REDIS_DISABLED !== 'true') {
+      await redis.disconnect()
+    }
     await prisma.$disconnect()
     logger.info('Cleanup completed')
     process.exit(0)
@@ -179,7 +190,9 @@ process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...')
   
   try {
-    await redis.disconnect()
+    if (process.env.REDIS_DISABLED !== 'true') {
+      await redis.disconnect()
+    }
     await prisma.$disconnect()
     logger.info('Cleanup completed')
     process.exit(0)

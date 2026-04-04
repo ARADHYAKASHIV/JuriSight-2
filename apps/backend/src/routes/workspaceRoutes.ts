@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { body, query, validationResult } from 'express-validator'
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { authMiddleware, AuthenticatedRequest } from '@/middleware/authMiddleware'
 import { AppError } from '@/middleware/errorHandler'
 import { CreateWorkspaceSchema, UpdateWorkspaceSchema, UserRole, WorkspaceMemberRole } from '@shared'

@@ -1,4 +1,4 @@
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { AppError } from '@/middleware/errorHandler'
 import { logger } from '@/utils/logger'
 import { UserRole, AnalyticsMetrics } from '@shared'

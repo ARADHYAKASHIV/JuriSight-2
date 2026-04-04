@@ -11,6 +11,7 @@ import Layout from '@/components/layout/Layout'
 // Lazy load pages for better performance
 const LoginPage = React.lazy(() => import('@/pages/auth/LoginPage'))
 const RegisterPage = React.lazy(() => import('@/pages/auth/RegisterPage'))
+const GoogleCallbackPage = React.lazy(() => import('@/pages/auth/GoogleCallbackPage'))
 const DashboardPage = React.lazy(() => import('@/pages/DashboardPage'))
 const DocumentsPage = React.lazy(() => import('@/pages/index').then(module => ({ default: module.DocumentsPage })))
 const DocumentViewerPage = React.lazy(() => import('@/pages/index').then(module => ({ default: module.DocumentViewerPage })))
@@ -77,6 +78,7 @@ function App() {
                 {/* Public routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
                 
                 {/* Protected routes */}
                 <Route path="/" element={

@@ -14,6 +14,7 @@ interface AuthContextType {
   logout: () => Promise<void>
   updateProfile: (data: Partial<PublicUser>) => Promise<void>
   refreshSession: () => Promise<void>
+  handleOAuthCallback: (accessToken: string, refreshToken: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -189,6 +190,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  /**
+   * Called by GoogleCallbackPage after the backend OAuth redirect.
+   * Stores the tokens and marks the user as authenticated.
+   */
+  const handleOAuthCallback = (accessToken: string, refreshToken: string) => {
+    // Store tokens — treat as "remember me" (persisted)
+    localStorage.setItem('accessToken', accessToken)
+    localStorage.setItem('refreshToken', refreshToken)
+    localStorage.setItem('rememberMe', 'true')
+    // setAuth without a user object — the profile query will hydrate it
+    setAuth(null as any, accessToken, refreshToken, true)
+  }
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
@@ -199,6 +213,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateProfile,
     refreshSession,
+    handleOAuthCallback,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express'
 import { JWTUtil } from '@/utils/jwt'
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { AppError } from '@/middleware/errorHandler'
 import { UserRole } from '@/shared'
 

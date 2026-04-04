@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
+import { z } from 'zod'
 import { AppError } from '@/middleware/errorHandler'
 import { logger } from '@/utils/logger'
+import { truncateToTokens, withRetry } from '@/utils/ai.utils'
 
 export interface AIAnalysisResult {
   summary: string
@@ -15,6 +17,24 @@ export interface AIAnalysisResult {
   processingTime: number
 }
 
+// Zod schema for structured output validation
+const AIAnalysisResultSchema = z.object({
+  summary: z.string().default('Summary not available'),
+  keyPoints: z.array(z.string()).default([]),
+  entities: z.array(z.object({
+    text: z.string(),
+    type: z.string(),
+    confidence: z.number().default(0.95)
+  })).default([])
+})
+
+const DocumentComparisonSchema = z.object({
+  similarityScore: z.number().default(0.5),
+  differences: z.array(z.string()).default([]),
+  commonClauses: z.array(z.string()).default([]),
+  changes: z.array(z.string()).default([])
+})
+
 export interface EmbeddingResult {
   embedding: number[]
   model: string
@@ -23,6 +43,7 @@ export interface EmbeddingResult {
     totalTokens: number
   }
 }
+
 
 export class AIService {
   private gemini: GoogleGenerativeAI | null = null
@@ -72,6 +93,7 @@ export class AIService {
   private async analyzeWithGemini(content: string, filename: string, startTime: number): Promise<AIAnalysisResult> {
     try {
       const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const truncatedContent = truncateToTokens(content, 6000)
       
       const prompt = `
         Analyze the following legal document and provide:
@@ -80,7 +102,7 @@ export class AIService {
         3. Named entities (people, organizations, dates, amounts)
         
         Document: ${filename}
-        Content: ${content.substring(0, 8000)} ${content.length > 8000 ? '...' : ''}
+        Content: ${truncatedContent}
         
         Respond in JSON format:
         {
@@ -90,26 +112,24 @@ export class AIService {
         }
       `
 
-      const result = await model.generateContent(prompt)
+      const result = await withRetry(() => model.generateContent(prompt))
       const response = await result.response
       const text = response.text()
       
       try {
-        const analysis = JSON.parse(text)
+        const parsed = JSON.parse(text)
+        const analysis = AIAnalysisResultSchema.parse(parsed)
         
         return {
-          summary: analysis.summary || 'Summary not available',
-          keyPoints: analysis.keyPoints || [],
-          entities: analysis.entities || [],
+          ...analysis,
           confidence: 0.85,
           processingTime: Date.now() - startTime,
         }
       } catch (parseError) {
-        // Fallback if JSON parsing fails
+        logger.warn('Gemini structured parse failed, applying fallback')
         return {
+          ...AIAnalysisResultSchema.parse({}),
           summary: text.substring(0, 500),
-          keyPoints: [],
-          entities: [],
           confidence: 0.6,
           processingTime: Date.now() - startTime,
         }
@@ -122,7 +142,8 @@ export class AIService {
 
   private async analyzeWithOpenAI(content: string, filename: string, startTime: number): Promise<AIAnalysisResult> {
     try {
-      const response = await this.openai!.chat.completions.create({
+      const truncatedContent = truncateToTokens(content, 5000)
+      const response = await withRetry(() => this.openai!.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           {
@@ -138,7 +159,7 @@ export class AIService {
               3. Named entities (people, organizations, dates, amounts)
               
               Document: ${filename}
-              Content: ${content.substring(0, 6000)} ${content.length > 6000 ? '...' : ''}
+              Content: ${truncatedContent}
               
               Respond in JSON format:
               {
@@ -151,26 +172,25 @@ export class AIService {
         ],
         max_tokens: 1500,
         temperature: 0.3,
-      })
+        response_format: { type: 'json_object' }
+      }))
 
-      const text = response.choices[0]?.message?.content || ''
+      const text = response.choices[0]?.message?.content || '{}'
       
       try {
-        const analysis = JSON.parse(text)
+        const parsed = JSON.parse(text)
+        const analysis = AIAnalysisResultSchema.parse(parsed)
         
         return {
-          summary: analysis.summary || 'Summary not available',
-          keyPoints: analysis.keyPoints || [],
-          entities: analysis.entities || [],
+          ...analysis,
           confidence: 0.8,
           processingTime: Date.now() - startTime,
         }
       } catch (parseError) {
-        // Fallback if JSON parsing fails
+        logger.warn('OpenAI structured parse failed, applying fallback')
         return {
+          ...AIAnalysisResultSchema.parse({}),
           summary: text.substring(0, 500),
-          keyPoints: [],
-          entities: [],
           confidence: 0.6,
           processingTime: Date.now() - startTime,
         }
@@ -201,10 +221,11 @@ export class AIService {
 
   private async generateOpenAIEmbedding(text: string): Promise<EmbeddingResult> {
     try {
-      const response = await this.openai!.embeddings.create({
+      const truncatedText = truncateToTokens(text, 7500)
+      const response = await withRetry(() => this.openai!.embeddings.create({
         model: 'text-embedding-ada-002',
-        input: text.substring(0, 8000), // Limit input size
-      })
+        input: truncatedText,
+      }))
 
       const embedding = response.data[0]?.embedding
       
@@ -249,19 +270,20 @@ export class AIService {
   private async answerWithGemini(question: string, context: string): Promise<string> {
     try {
       const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const truncatedContext = truncateToTokens(context, 8000)
       
       const prompt = `
         Based on the following document context, answer the user's question. 
         If the answer cannot be found in the context, say so clearly.
         
-        Context: ${context}
+        Context: ${truncatedContext}
         
         Question: ${question}
         
         Answer:
       `
 
-      const result = await model.generateContent(prompt)
+      const result = await withRetry(() => model.generateContent(prompt))
       const response = await result.response
       return response.text()
     } catch (error) {
@@ -272,7 +294,8 @@ export class AIService {
 
   private async answerWithOpenAI(question: string, context: string): Promise<string> {
     try {
-      const response = await this.openai!.chat.completions.create({
+      const truncatedContext = truncateToTokens(context, 3500)
+      const response = await withRetry(() => this.openai!.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           {
@@ -282,7 +305,7 @@ export class AIService {
           {
             role: 'user',
             content: `
-              Context: ${context}
+              Context: ${truncatedContext}
               
               Question: ${question}
             `,
@@ -290,7 +313,7 @@ export class AIService {
         ],
         max_tokens: 500,
         temperature: 0.3,
-      })
+      }))
 
       return response.choices[0]?.message?.content || 'I could not generate an answer to your question.'
     } catch (error) {
@@ -322,6 +345,8 @@ export class AIService {
   private async compareWithGemini(doc1Content: string, doc2Content: string): Promise<any> {
     try {
       const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const t1 = truncateToTokens(doc1Content, 4000)
+      const t2 = truncateToTokens(doc2Content, 4000)
       
       const prompt = `
         Compare these two legal documents and provide:
@@ -330,8 +355,8 @@ export class AIService {
         3. Common clauses
         4. Notable changes
         
-        Document 1: ${doc1Content.substring(0, 4000)}
-        Document 2: ${doc2Content.substring(0, 4000)}
+        Document 1: ${t1}
+        Document 2: ${t2}
         
         Respond in JSON format:
         {
@@ -342,19 +367,21 @@ export class AIService {
         }
       `
 
-      const result = await model.generateContent(prompt)
+      const result = await withRetry(() => model.generateContent(prompt))
       const response = await result.response
       const text = response.text()
       
       try {
-        return JSON.parse(text)
+        const parsed = JSON.parse(text)
+        return DocumentComparisonSchema.parse(parsed)
       } catch (parseError) {
-        return {
+        logger.warn('Gemini comparison structure error, returning fallback')
+        return DocumentComparisonSchema.parse({
           similarityScore: 0.5,
           differences: ['Analysis could not be completed'],
           commonClauses: [],
           changes: [],
-        }
+        })
       }
     } catch (error) {
       logger.error('Gemini comparison error:', error)
@@ -364,7 +391,10 @@ export class AIService {
 
   private async compareWithOpenAI(doc1Content: string, doc2Content: string): Promise<any> {
     try {
-      const response = await this.openai!.chat.completions.create({
+      const t1 = truncateToTokens(doc1Content, 3000)
+      const t2 = truncateToTokens(doc2Content, 3000)
+      
+      const response = await withRetry(() => this.openai!.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           {
@@ -380,8 +410,8 @@ export class AIService {
               3. Common clauses
               4. Notable changes
               
-              Document 1: ${doc1Content.substring(0, 3000)}
-              Document 2: ${doc2Content.substring(0, 3000)}
+              Document 1: ${t1}
+              Document 2: ${t2}
               
               Respond in JSON format:
               {
@@ -395,19 +425,22 @@ export class AIService {
         ],
         max_tokens: 1000,
         temperature: 0.3,
-      })
+        response_format: { type: 'json_object' }
+      }))
 
-      const text = response.choices[0]?.message?.content || ''
+      const text = response.choices[0]?.message?.content || '{}'
       
       try {
-        return JSON.parse(text)
+        const parsed = JSON.parse(text)
+        return DocumentComparisonSchema.parse(parsed)
       } catch (parseError) {
-        return {
+        logger.warn('OpenAI comparison structure error, returning fallback')
+        return DocumentComparisonSchema.parse({
           similarityScore: 0.5,
           differences: ['Analysis could not be completed'],
           commonClauses: [],
           changes: [],
-        }
+        })
       }
     } catch (error) {
       logger.error('OpenAI comparison error:', error)

@@ -1,0 +1,55 @@
+name: JuriSight CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm install
+        npm ci
+        
+    - name: Format Check
+      run: npm run format:check || echo "Skipping if missing"
+        
+    - name: Linting
+      run: npm run lint --if-present
+      
+    - name: Type Check
+      run: npm run typecheck --if-present
+      
+    - name: Test
+      run: npm test --if-present
+
+  docker-build:
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Build Docker Image
+      run: docker build -t jurisight/backend:latest -f apps/backend/Dockerfile .

@@ -1,4 +1,4 @@
-import { prisma } from '@/index'
+import { prisma } from '@/lib/clients'
 import { AIService } from '@/services/AIService'
 import { VectorService } from '@/services/VectorService'
 import { AppError } from '@/middleware/errorHandler'

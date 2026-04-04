@@ -1,6 +1,32 @@
 # JuriSight - AI-Powered Legal Document Analysis Platform
 
+![Status](https://img.shields.io/badge/Status-Development-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Node](https://img.shields.io/badge/Node-%3E%3D18.0.0-blue)
+![Dependencies](https://img.shields.io/badge/Dependencies-Up%20to%20Date-brightgreen)
+
+> **Transforming legal document analysis with the power of modern AI.**
+
+---
+
 JuriSight is a comprehensive legal document analysis platform that leverages advanced AI to help legal professionals analyze, understand, and manage legal documents with unprecedented efficiency and accuracy.
+
+## 🏗 System Architecture
+
+```mermaid
+graph TD
+    User([User]) <--> Frontend[Frontend - React/Vite]
+    Frontend <--> Backend[Backend - Node/Express]
+    Backend <--> DB[(PostgreSQL - Prisma)]
+    Backend <--> Redis[(Redis - Caching)]
+    Backend <--> OpenAI[OpenAI API - GPT-4]
+    Backend <--> Gemini[Google Gemini API]
+    
+    subgraph "Data Flow"
+    Backend -- "Embeddings" --> VectorSearch[Vector Semantic Search]
+    Backend -- "Parsing" --> DocProcessing[Document Processing Pipeline]
+    end
+```
 
 ## 🚀 Features
 
@@ -61,25 +87,21 @@ JuriSight is a comprehensive legal document analysis platform that leverages adv
 ```
 JuriSight/
 ├── apps/
-│   ├── frontend/          # React frontend application
+│   ├── frontend/          # React frontend application (Vite, Tailwind, Shadcn/UI)
 │   │   ├── src/
 │   │   │   ├── components/    # Reusable UI components
 │   │   │   ├── pages/         # Application pages
-│   │   │   ├── hooks/         # Custom React hooks
-│   │   │   ├── services/      # API services
-│   │   │   ├── stores/        # State management
-│   │   │   └── providers/     # Context providers
-│   │   └── Dockerfile
-│   └── backend/           # Node.js backend application
+│   │   │   └── services/      # API services
+│   └── backend/           # Node.js backend application (Express, Prisma)
 │       ├── src/
 │       │   ├── routes/        # API route handlers
-│       │   ├── services/      # Business logic services
-│       │   ├── middleware/    # Express middleware
-│       │   ├── utils/         # Utility functions
-│       │   └── types/         # TypeScript type definitions
-│       └── Dockerfile
+│       │   ├── services/      # AI & Business logic
+│       │   └── middleware/    # Auth & Validation
+├── packages/              # Shared packages
+│   └── types/             # Common TypeScript interfaces
 ├── prisma/               # Database schema and migrations
-├── docs/                 # Documentation
+├── docs/                 # Detailed documentation
+├── docker/               # Docker configuration files
 ├── docker-compose.prod.yml
 ├── nginx.conf
 └── README.md
@@ -135,16 +157,21 @@ npx prisma db push
 
 5. **Start Development Servers**
 
-Backend:
+You can start both frontend and backend concurrently from the root directory:
 ```bash
-cd apps/backend
 npm run dev
 ```
 
-Frontend:
+Alternatively, run them separately:
+
+**Backend:**
 ```bash
-cd apps/frontend
-npm run dev
+npm run dev:backend
+```
+
+**Frontend:**
+```bash
+npm run dev:frontend
 ```
 
 ### Production Deployment
@@ -264,6 +291,14 @@ chmod +x deploy.sh
 4. **CI/CD**: GitHub Actions workflows
 5. **Monitoring**: Winston logging with multiple transports
 6. **Error Tracking**: Comprehensive error handling
+
+## 🗺 Project Roadmap
+
+- [x] Phase 1: Core AI Analysis & Document Upload
+- [x] Phase 2: RAG-based Chat & Semantic Search
+- [/] Phase 3: Advanced UI Overhaul (Migrating to Shadcn/UI)
+- [ ] Phase 4: Collaborative Workspaces & Team Features
+- [ ] Phase 5: Advanced Analytics & Risk Benchmarking
 
 ## 🤝 Contributing
 

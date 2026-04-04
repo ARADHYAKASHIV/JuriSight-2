@@ -1,11 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import bcrypt from 'bcryptjs'
 import { body, validationResult } from 'express-validator'
-import { prisma } from '@/index'
+import passport from 'passport'
+import { prisma } from '@/lib/clients'
 import { JWTUtil } from '@/utils/jwt'
 import { AppError } from '@/middleware/errorHandler'
 import { authMiddleware, AuthenticatedRequest } from '@/middleware/authMiddleware'
 import { LoginSchema, RegisterSchema, UserRole, UserActivityType } from '@/shared'
+import '@/config/passport' // register strategies
 
 const router = Router()
 
@@ -45,7 +47,10 @@ router.post('/login', validateLogin, async (req: Request, res: Response, next: N
       throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS')
     }
 
-    // Check password
+    // Check password (Google OAuth users have no password)
+    if (!user.password) {
+      throw new AppError('This account uses Google Sign-In. Please sign in with Google.', 401, 'USE_GOOGLE_LOGIN')
+    }
     const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
       throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS')
@@ -280,5 +285,36 @@ router.post('/logout', authMiddleware, async (req: Request, res: Response, next:
     next(error)
   }
 })
+
+// ─── Google OAuth ───────────────────────────────────────────────────────────
+
+const FRONTEND_URL = process.env.CORS_ORIGIN || 'http://localhost:5173'
+
+// Step 1: redirect user to Google's consent screen
+router.get(
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+)
+
+// Step 2: Google redirects back here with a code
+router.get(
+  '/google/callback',
+  passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/login?error=google_failed`, session: false }),
+  (req: Request, res: Response) => {
+    try {
+      const user = req.user as any
+      const { accessToken, refreshToken } = JWTUtil.generateTokenPair({
+        id: user.id,
+        email: user.email,
+        role: user.role as string,
+      })
+      // Redirect to frontend with tokens — frontend stores them and navigates to dashboard
+      const params = new URLSearchParams({ accessToken, refreshToken })
+      res.redirect(`${FRONTEND_URL}/auth/google/callback?${params.toString()}`)
+    } catch (err) {
+      res.redirect(`${FRONTEND_URL}/login?error=token_generation_failed`)
+    }
+  }
+)
 
 export default router

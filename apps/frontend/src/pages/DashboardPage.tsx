@@ -1,84 +1,90 @@
-import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import React, { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { FileUploadDropzone, UploadedFile } from "@/components/ui/file-upload-dropzone"
+import { 
+  DocumentTextIcon, 
+  ChatBubbleLeftRightIcon, 
+  ChartBarIcon, 
+  ScaleIcon,
+  ArrowTrendingUpIcon,
+  ClockIcon,
+  PlusIcon,
+  ChevronRightIcon
+} from "@heroicons/react/24/outline"
 
-// Icons
-const DocumentIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-)
+export default function DashboardPage() {
+  const [files, setFiles] = useState<UploadedFile[]>([])
 
-const ChatIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-  </svg>
-)
+  const handleFilesChange = (newFiles: File[]) => {
+    const newUploadedFiles: UploadedFile[] = newFiles.map((file) => ({
+      id: `${file.name}-${Date.now()}`,
+      file,
+      progress: 0,
+      status: "uploading",
+    }))
+    setFiles((prev) => [...prev, ...newUploadedFiles])
+  }
 
-const AnalyticsIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-)
+  const handleFileRemove = (id: string) => {
+    setFiles((prevFiles) => prevFiles.filter((file) => file.id !== id))
+  }
 
-const CompareIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-  </svg>
-)
+  // Simulate file upload progress
+  useEffect(() => {
+    const uploadingFile = files.find((f) => f.status === "uploading")
+    if (!uploadingFile) return
 
-const TrendUpIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-  </svg>
-)
+    const interval = setInterval(() => {
+      setFiles((prevFiles) =>
+        prevFiles.map((f) => {
+          if (f.id === uploadingFile.id) {
+            const newProgress = Math.min(f.progress + 15, 100)
+            return {
+              ...f,
+              progress: newProgress,
+              status: newProgress === 100 ? "completed" : "uploading",
+            }
+          }
+          return f
+        })
+      )
+    }, 300)
 
-const ClockIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-)
+    return () => clearInterval(interval)
+  }, [files])
 
-const PlusIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-)
-
-const DashboardPage: React.FC = () => {
   const stats = [
     {
       title: "Documents Processed",
       value: "247",
       change: "+12%",
-      changeType: "positive" as const,
-      icon: DocumentIcon,
-      description: "Total documents analyzed"
+      trend: "positive",
+      icon: DocumentTextIcon,
     },
     {
-      title: "Chat Sessions", 
+      title: "Active Chats", 
       value: "89",
       change: "+23%",
-      changeType: "positive" as const,
-      icon: ChatIcon,
-      description: "Active AI conversations"
+      trend: "positive",
+      icon: ChatBubbleLeftRightIcon,
     },
     {
-      title: "Analysis Reports",
+      title: "Analyses Generated",
       value: "156",
       change: "+8%",
-      changeType: "positive" as const,
-      icon: AnalyticsIcon,
-      description: "Generated insights"
+      trend: "positive",
+      icon: ChartBarIcon,
     },
     {
       title: "Comparisons",
       value: "34",
       change: "+15%",
-      changeType: "positive" as const,
-      icon: CompareIcon,
-      description: "Document comparisons"
+      trend: "positive",
+      icon: ScaleIcon,
     }
   ]
 
@@ -88,227 +94,138 @@ const DashboardPage: React.FC = () => {
       type: "document",
       title: "Contract Analysis Complete",
       description: "Employment_Agreement_2024.pdf",
-      time: "2 minutes ago",
-      status: "completed"
+      time: "2 mins ago",
+      icon: DocumentTextIcon,
     },
     {
       id: 2,
       type: "chat",
       title: "New Chat Session Started",
       description: "Discussion about liability clauses",
-      time: "15 minutes ago",
-      status: "active"
+      time: "15 mins ago",
+      icon: ChatBubbleLeftRightIcon,
     },
     {
       id: 3,
       type: "comparison",
       title: "Document Comparison",
       description: "Comparing 2 lease agreements", 
-      time: "1 hour ago",
-      status: "completed"
+      time: "1 hr ago",
+      icon: ScaleIcon,
     },
     {
       id: 4,
       type: "analysis",
       title: "Risk Assessment Generated",
       description: "High-risk clauses identified in contract",
-      time: "2 hours ago",
-      status: "completed"
-    }
-  ]
-
-  const quickActions = [
-    {
-      title: "Upload Document",
-      description: "Analyze a new legal document",
-      href: "/documents",
-      icon: DocumentIcon,
-      color: "legal" as const
-    },
-    {
-      title: "Start Chat",
-      description: "Ask questions about your documents",
-      href: "/chat",
-      icon: ChatIcon,
-      color: "default" as const
-    },
-    {
-      title: "Compare Documents",
-      description: "Find differences between documents",
-      href: "/comparison",
-      icon: CompareIcon,
-      color: "secondary" as const
+      time: "2 hrs ago",
+      icon: ChartBarIcon,
     }
   ]
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-4xl font-bold text-foreground tracking-tight">
-          Welcome to JuriSight
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          AI-powered legal document analysis and insights platform
-        </p>
+    <div className="space-y-8 animate-fade-in pb-10">
+      {/* Header section with sophisticated typography */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-gradient">
+            Welcome to JuriSight
+          </h1>
+          <p className="text-muted-foreground max-w-2xl text-lg">
+            Review your activity overview and manage legal documents with AI-powered insights.
+          </p>
+        </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon
-          return (
-            <Card key={index} className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Icon />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-baseline space-x-2">
-                  <div className="text-3xl font-bold text-foreground">{stat.value}</div>
-                  <div className="flex items-center space-x-1">
-                    <TrendUpIcon />
-                    <Badge variant="success" className="text-xs">
-                      {stat.change}
-                    </Badge>
+      {/* Metrics Row with subtle Framer Motion stagger */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.4 }}
+          >
+            <Card className="hover-lift border-border bg-card/50 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between space-y-0 pb-2">
+                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-gradient-legal text-white shadow-md">
+                    <stat.icon className="h-5 w-5" />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {stat.description}
-                </p>
+                <div className="flex items-baseline space-x-3">
+                  <h2 className="text-3xl font-bold tracking-tight text-foreground">{stat.value}</h2>
+                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1 px-2 py-0.5">
+                    <ArrowTrendingUpIcon className="h-3 w-3" />
+                    {stat.change}
+                  </Badge>
+                </div>
               </CardContent>
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Card>
-          )
-        })}
+          </motion.div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Quick Actions */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>
-                Get started with these common tasks
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {quickActions.map((action, index) => {
-                const Icon = action.icon
-                return (
-                  <Button
-                    key={index}
-                    variant={action.color}
-                    className="w-full justify-start h-auto p-4 text-left"
-                    asChild
-                  >
-                    <a href={action.href}>
-                      <div className="flex items-start space-x-3">
-                        <Icon />
-                        <div className="flex-1 space-y-1">
-                          <div className="font-medium">{action.title}</div>
-                          <div className="text-xs opacity-90">{action.description}</div>
-                        </div>
-                        <PlusIcon />
-                      </div>
-                    </a>
-                  </Button>
-                )
-              })}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Main Content Area - File Upload spanning 2 columns */}
+        <motion.div 
+          className="lg:col-span-2 space-y-6"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+        >
+          <FileUploadDropzone
+            files={files}
+            onFilesChange={handleFilesChange}
+            onFileRemove={handleFileRemove}
+            maxFiles={10}
+            maxSize={50}
+          />
+        </motion.div>
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>
-                Your latest document analysis and interactions
-              </CardDescription>
+        {/* Sidebar widgets */}
+        <motion.div 
+          className="lg:col-span-1 space-y-6"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+        >
+          <Card className="border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ClockIcon className="h-5 w-5 text-muted-foreground" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>Your latest actions across workspaces</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-4 p-4 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      {activity.type === 'document' && <DocumentIcon />}
-                      {activity.type === 'chat' && <ChatIcon />}
-                      {activity.type === 'comparison' && <CompareIcon />}
-                      {activity.type === 'analysis' && <AnalyticsIcon />}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-foreground">{activity.title}</h4>
-                        <Badge 
-                          variant={activity.status === 'completed' ? 'success' : 'info'}
-                          className="text-xs"
-                        >
-                          {activity.status}
-                        </Badge>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[400px] w-full">
+                <div className="divide-y divide-border/50">
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="p-4 hover:bg-muted/50 transition-colors group cursor-pointer flex gap-4">
+                      <div className="h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        <activity.icon className="h-4 w-4" />
                       </div>
-                      <p className="text-sm text-muted-foreground">{activity.description}</p>
-                      <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                        <ClockIcon />
-                        <span>{activity.time}</span>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-sm font-medium text-foreground leading-none">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground/60">{activity.time}</p>
                       </div>
+                      <ChevronRightIcon className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 self-center" />
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </ScrollArea>
+              <div className="p-4 border-t border-border/50 bg-muted/10">
+                <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground">
+                  View All Activity
+                </Button>
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       </div>
-
-      {/* Feature Highlights */}
-      <Card className="bg-gradient-to-r from-legal-blue/5 to-legal-navy/5 border-legal-blue/20">
-        <CardHeader>
-          <CardTitle className="text-legal-blue">AI-Powered Legal Analysis</CardTitle>
-          <CardDescription>
-            Leverage advanced AI to streamline your legal document workflow
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-legal-blue/10 rounded-lg flex items-center justify-center mx-auto">
-                <DocumentIcon />
-              </div>
-              <h3 className="font-semibold">Smart Document Processing</h3>
-              <p className="text-sm text-muted-foreground">
-                Extract key information and insights from legal documents automatically
-              </p>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-legal-blue/10 rounded-lg flex items-center justify-center mx-auto">
-                <ChatIcon />
-              </div>
-              <h3 className="font-semibold">Interactive Q&A</h3>
-              <p className="text-sm text-muted-foreground">
-                Ask questions about your documents and get instant AI-powered answers
-              </p>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="w-12 h-12 bg-legal-blue/10 rounded-lg flex items-center justify-center mx-auto">
-                <AnalyticsIcon />
-              </div>
-              <h3 className="font-semibold">Risk Analysis</h3>
-              <p className="text-sm text-muted-foreground">
-                Identify potential risks and compliance issues in your legal documents
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
-
-export default DashboardPage

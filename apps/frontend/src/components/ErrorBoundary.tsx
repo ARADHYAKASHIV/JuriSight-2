@@ -1,87 +1,57 @@
-import React from 'react'
-import { Button } from '@/components/ui/button'
+import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
-interface ErrorBoundaryState {
+interface Props {
+  children?: ReactNode
+}
+
+interface State {
   hasError: boolean
   error?: Error
-  errorInfo?: React.ErrorInfo
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode
-  fallback?: React.ComponentType<{ error: Error; resetError: () => void }>
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props)
-    this.state = { hasError: false }
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): State {
+    // Update state so the next render will show the fallback UI.
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ error, errorInfo })
-    
-    // Log error to monitoring service
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
-    
-    // In production, you might want to send this to a logging service
-    if (process.env.NODE_ENV === 'production') {
-      // logErrorToService(error, errorInfo)
-    }
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo)
   }
 
-  resetError = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
-  }
-
-  render() {
+  public render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback
-        return <FallbackComponent error={this.state.error!} resetError={this.resetError} />
-      }
-
       return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-destructive/10 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="max-w-md w-full border-destructive">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-              </div>
-              <CardTitle className="text-destructive">Something went wrong</CardTitle>
+                Something went wrong
+              </CardTitle>
               <CardDescription>
-                We're sorry, but something unexpected happened. Please try refreshing the page.
+                An unexpected error occurred in the JuriSight interface.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Error Details:</h4>
-                  <pre className="text-xs text-muted-foreground overflow-auto">
-                    {this.state.error.message}
-                  </pre>
-                </div>
-              )}
-              
-              <div className="flex flex-col space-y-2">
-                <Button onClick={this.resetError} variant="default" className="w-full">
-                  Try Again
-                </Button>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  variant="outline" 
-                  className="w-full"
-                >
-                  Refresh Page
-                </Button>
+              <div className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono text-muted-foreground">
+                {this.state.error?.message || 'Unknown Error'}
               </div>
+              <Button 
+                variant="default" 
+                className="w-full"
+                onClick={() => window.location.href = '/dashboard'}
+              >
+                Reload Dashboard
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -91,5 +61,3 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return this.props.children
   }
 }
-
-export default ErrorBoundary
