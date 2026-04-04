@@ -16,8 +16,8 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -86,7 +86,7 @@ export function AppSidebar() {
                       render={
                         <Link to={item.href}>
                           <item.icon className="size-4" />
-                          <span>{item.name}</span>
+                          <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
                         </Link>
                       }
                       className={`
@@ -121,7 +121,7 @@ export function AppSidebar() {
                       render={
                         <Link to={item.href} className="text-sidebar-foreground hover:bg-accent/50">
                           <item.icon className="size-4" />
-                          <span>{item.name}</span>
+                          <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
                         </Link>
                       }
                     />
@@ -153,35 +153,44 @@ export function AppSidebar() {
             </SidebarMenuButton>
           } />
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl border border-border shadow-legal"
+            className="w-56 rounded-xl border border-border bg-popover p-2 shadow-legal"
             side="top"
             align="end"
-            sideOffset={4}
+            sideOffset={8}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg bg-gradient-to-br from-legal-gold to-orange-400 text-white">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold text-foreground">{(user as any)?.name || "Account"}</span>
-                  <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
-                </div>
+            <div className="flex items-center gap-3 px-2 py-2 mb-2 bg-muted/30 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-gradient-to-br from-legal-gold to-orange-400 text-white font-bold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
+                <span className="truncate font-semibold text-foreground">{(user as any)?.name || "Account"}</span>
+                <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
               </div>
-            </DropdownMenuLabel>
+            </div>
+            
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem render={
-              <Link to="/settings" className="cursor-pointer">
-                <Cog6ToothIcon className="mr-2 h-4 w-4" />
-                Settings
-              </Link>
-            } />
+            
+            <DropdownMenuGroup>
+              <DropdownMenuItem 
+                render={
+                  <Link to="/settings" className="cursor-pointer">
+                    <Cog6ToothIcon className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                }
+              />
+            </DropdownMenuGroup>
+            
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive">
+            
+            <DropdownMenuItem 
+              onClick={() => logout()} 
+              className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
               <ArrowRightOnRectangleIcon className="mr-2 h-4 w-4" />
-              Log out
+              <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
