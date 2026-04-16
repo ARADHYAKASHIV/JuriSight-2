@@ -51,8 +51,23 @@ app.use(helmet({
 }))
 
 // CORS configuration
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim())
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. server-to-server, curl)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    // In development, allow any localhost origin
+    if (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost')) {
+      return callback(null, true)
+    }
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -70,6 +85,17 @@ const limiter = rateLimit({
 })
 
 app.use('/api/', limiter)
+
+// Stricter rate limiting for AI chat endpoints to protect API credits
+const chatLimiter = rateLimit({
+  windowMs: 60000, // 1 minute
+  max: 30, // 30 requests per minute per IP
+  message: {
+    error: 'Too many chat requests. Please slow down and try again shortly.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // Body parsing middleware
 app.use(compression())
@@ -95,7 +121,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/workspaces', authMiddleware, workspaceRoutes)
 app.use('/api/documents', authMiddleware, documentRoutes)
-app.use('/api/chat', authMiddleware, chatRoutes)
+app.use('/api/chat', authMiddleware, chatLimiter, chatRoutes)
 app.use('/api/comparisons', authMiddleware, comparisonRoutes)
 app.use('/api/analytics', authMiddleware, analyticsRoutes)
 

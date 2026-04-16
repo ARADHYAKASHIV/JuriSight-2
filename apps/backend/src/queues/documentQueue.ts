@@ -132,7 +132,38 @@ if (redisConnection && process.env.REDIS_DISABLED !== 'true') {
 
 export const queueDocumentAnalysis = async (data: DocumentAnalysisJob) => {
   if (!documentAnalysisQueue) {
-    logger.warn(`Skipping analysis queuing for document ${data.documentId}: Redis is unavailable.`)
+    // Inline fallback: run analysis directly when Redis is unavailable
+    logger.info(`Running inline analysis for document ${data.documentId} (Redis unavailable)`)
+    try {
+      const document = await prisma.document.findUnique({
+        where: { id: data.documentId },
+        include: { workspace: true }
+      })
+      if (!document) {
+        logger.warn(`Document ${data.documentId} not found for inline analysis`)
+        return null
+      }
+      if (data.extractedText) {
+        const aiService = new AIService()
+        const analysis = await aiService.analyzeDocument(data.extractedText, document.originalName)
+        const metadata = (document.metadata as any) || {}
+        await prisma.document.update({
+          where: { id: data.documentId },
+          data: {
+            metadata: {
+              ...metadata,
+              analysis,
+              lastAnalyzed: new Date().toISOString()
+            }
+          }
+        })
+        const vectorService = new VectorService()
+        await vectorService.createEmbeddings(data.documentId, data.extractedText)
+        logger.info(`Inline analysis completed for document ${data.documentId}`)
+      }
+    } catch (error) {
+      logger.error(`Inline analysis failed for document ${data.documentId}:`, error)
+    }
     return null
   }
   return documentAnalysisQueue.add('analyze', data, {

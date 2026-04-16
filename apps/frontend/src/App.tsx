@@ -7,6 +7,7 @@ import { AuthProvider } from '@/providers/AuthProvider'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import Layout from '@/components/layout/Layout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Lazy load pages for better performance
 const LoginPage = React.lazy(() => import('@/pages/auth/LoginPage'))
@@ -72,6 +73,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="jurisight-ui-theme">
         <AuthProvider>
+          <ErrorBoundary>
           <div className="min-h-screen bg-background font-sans antialiased">
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -150,6 +152,7 @@ function App() {
             
             <Toaster />
           </div>
+          </ErrorBoundary>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, chatApi } from '@/services/api'
+import { chatApi } from '@/services/api'
 import type { ChatSession, ChatMessage, CreateChatSession, CreateChatMessage } from '@/shared'
 import { useErrorHandler } from './useErrorHandler'
 
@@ -23,7 +23,7 @@ export interface ChatState {
 export const useChat = (options: UseChatOptions = {}) => {
   const { sessionId, documentId } = options
   const queryClient = useQueryClient()
-  const { handleError, handleApiError } = useErrorHandler()
+  const { handleApiError } = useErrorHandler()
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(sessionId)
 
   // Fetch chat sessions
