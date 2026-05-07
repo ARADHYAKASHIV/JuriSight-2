@@ -16,7 +16,7 @@ export interface FileUploadDropzoneProps {
   files?: UploadedFile[];
   onFilesChange?: (files: File[]) => void;
   onFileRemove?: (id: string) => void;
-  maxFiles?: number;
+
   maxSize?: number;
   accept?: string;
   className?: string;
@@ -28,7 +28,7 @@ const FileUploadDropzone = React.forwardRef<HTMLDivElement, FileUploadDropzonePr
       files = [],
       onFilesChange,
       onFileRemove,
-      maxFiles = 5,
+
       maxSize = 10,
       accept = "application/pdf,.doc,.docx",
       className,

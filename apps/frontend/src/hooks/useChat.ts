@@ -110,25 +110,20 @@ export const useChat = (options: UseChatOptions = {}) => {
   // Send message
   const sendMessageMutation = useMutation({
     mutationFn: async (data: CreateChatMessage) => {
-      if (!currentSessionId) {
+      if (!data.sessionId) {
         throw new Error('No active chat session')
       }
       
-      const messageData = {
-        ...data,
-        sessionId: currentSessionId
-      }
-      
-      const response = await chatApi.sendChatMessage(messageData)
+      const response = await chatApi.sendChatMessage(data)
       if (!response.success) {
         throw new Error(response.error?.message || 'Failed to send message')
       }
       return response.data!
     },
-    onSuccess: () => {
-      // Refresh messages
+    onSuccess: (_data, variables) => {
+      // Refresh messages using the sessionId from the mutation variables
       queryClient.invalidateQueries({
-        queryKey: ['chatMessages', currentSessionId]
+        queryKey: ['chatMessages', variables.sessionId]
       })
     },
     onError: (error) => {
@@ -183,6 +178,13 @@ export const useChat = (options: UseChatOptions = {}) => {
     })
   }, [currentSessionId, sendMessageMutation])
 
+  const sendMessageToSession = useCallback(async (content: string, targetSessionId: string) => {
+    return sendMessageMutation.mutateAsync({
+      content,
+      sessionId: targetSessionId,
+    })
+  }, [sendMessageMutation])
+
   const switchSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId)
   }, [])
@@ -214,6 +216,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     ...state,
     createSession,
     sendMessage,
+    sendMessageToSession,
     switchSession,
     deleteSession,
     setCurrentSessionId,

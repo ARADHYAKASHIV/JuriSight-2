@@ -48,7 +48,8 @@ class ApiClient {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('accessToken')
+        // Token may be in localStorage (rememberMe=true) or sessionStorage (rememberMe=false)
+        const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`
         }
@@ -67,7 +68,8 @@ class ApiClient {
           originalRequest._retry = true
           
           try {
-            const refreshToken = localStorage.getItem('refreshToken')
+            // Token may be in localStorage (rememberMe) or sessionStorage (session-only)
+            const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
             if (!refreshToken) {
               throw new Error('No refresh token')
             }
@@ -77,12 +79,19 @@ class ApiClient {
             })
             
             const { accessToken } = response.data.data
-            localStorage.setItem('accessToken', accessToken)
+            // Write new token back to whichever storage originally held it
+            if (localStorage.getItem('refreshToken')) {
+              localStorage.setItem('accessToken', accessToken)
+            } else {
+              sessionStorage.setItem('accessToken', accessToken)
+            }
             
             return this.client(originalRequest)
           } catch (refreshError) {
             localStorage.removeItem('accessToken')
             localStorage.removeItem('refreshToken')
+            sessionStorage.removeItem('accessToken')
+            sessionStorage.removeItem('refreshToken')
             window.location.href = '/login'
             return Promise.reject(refreshError)
           }

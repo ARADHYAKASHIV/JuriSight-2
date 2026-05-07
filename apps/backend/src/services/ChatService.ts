@@ -363,14 +363,20 @@ export class ChatService {
   }> {
     try {
       // Search for relevant content using vector similarity
-      const relevantChunks = await this.vectorService.searchSimilarContent(
-        userQuestion,
-        [session.document.id],
-        5,
-        0.7
-      )
+      let relevantChunks: any[] = []
+      try {
+        relevantChunks = await this.vectorService.searchSimilarContent(
+          userQuestion,
+          [session.document.id],
+          5,
+          0.7
+        )
+      } catch (vectorError) {
+        logger.warn('Vector search failed, falling back to document content:', vectorError)
+        // Continue without vector results — will use document content directly
+      }
 
-      // Prepare context from relevant chunks
+      // Prepare context from relevant chunks or fall back to document content
       const context = relevantChunks.length > 0
         ? relevantChunks.map(chunk => chunk.content).join('\n\n')
         : session.document.content || 'No document content available'
@@ -398,7 +404,12 @@ export class ChatService {
         confidence: relevantChunks.length > 0 ? 0.8 : 0.5,
       }
     } catch (error) {
-      logger.error('Error generating AI response:', error)
+      logger.error('Error generating AI response:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        sessionId: session?.id,
+        documentId: session?.document?.id,
+      })
 
       // Fallback response
       return {
@@ -406,6 +417,7 @@ export class ChatService {
         metadata: {
           timestamp: new Date().toISOString(),
           error: true,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
         },
         citations: [],
         confidence: 0.1,
@@ -472,7 +484,7 @@ export class ChatService {
       }
 
       // Check if user can delete (must be owner or admin)
-      if (session.user.id !== userId && userRole !== UserRole.ADMIN) {
+      if (session.userId !== userId && userRole !== UserRole.ADMIN) {
         throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS')
       }
 

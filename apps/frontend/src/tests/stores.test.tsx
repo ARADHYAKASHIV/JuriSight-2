@@ -1,30 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter } from 'react-router-dom'
+
 import { useAuthStore } from '../stores/authStore'
 
 // Mock the auth store
 vi.mock('../stores/authStore')
-
-const createTestQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: { retry: false },
-    mutations: { retry: false },
-  },
-})
-
-const renderWithProviders = (ui: React.ReactElement) => {
-  const queryClient = createTestQueryClient()
-  
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        {ui}
-      </BrowserRouter>
-    </QueryClientProvider>
-  )
-}
 
 describe('Auth Store', () => {
   beforeEach(() => {

@@ -16,14 +16,12 @@ export interface AnalysisState {
   error: string | null
 }
 
-interface DocumentWithAnalysis extends Document {
-  analysis?: DocumentAnalysisResult
-}
+
 
 export const useDocumentAnalysis = (options: UseDocumentAnalysisOptions) => {
   const { documentId } = options
   const queryClient = useQueryClient()
-  const { handleError, handleApiError } = useErrorHandler()
+  const { handleApiError } = useErrorHandler()
   const [analysisResult, setAnalysisResult] = useState<DocumentAnalysisResult | null>(null)
 
   // Fetch document details

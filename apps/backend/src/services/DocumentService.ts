@@ -174,44 +174,77 @@ export class DocumentService {
         logger.warn('Text extraction failed, continuing without content:', error)
       }
 
-      // Create document record
-      const document = await prisma.document.create({
-        data: {
-          workspaceId: documentData.workspaceId,
-          uploadedById: userId,
-          title: documentData.title || file.originalname,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          category: documentData.category,
-          tags: documentData.tags || [],
-          content: extractedContent?.text,
-          metadata: {
-            filename: storageResult.filename,
-            size: storageResult.size,
-            hash: storageResult.hash,
-            processingTime,
-            textMetadata: extractedContent?.metadata,
-            uploadedAt: new Date().toISOString(),
-          },
+      // Deduplicate: if same file content was already uploaded by this user, return existing record
+      const existingByHash = await prisma.document.findFirst({
+        where: {
           hash: storageResult.hash,
-          confidenceScore: extractedContent ? 0.9 : 0.5,
-          processingTime,
+          uploadedById: userId,
         },
         include: {
-          workspace: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          uploadedBy: {
-            select: {
-              id: true,
-              email: true,
-            },
-          },
+          workspace: { select: { id: true, name: true } },
+          uploadedBy: { select: { id: true, email: true } },
         },
       })
+
+      if (existingByHash) {
+        logger.info(`Duplicate document detected (hash match). Returning existing record ${existingByHash.id}`)
+        return existingByHash as any
+      }
+
+      // Create document record
+      let document: any
+      try {
+        document = await prisma.document.create({
+          data: {
+            workspaceId: documentData.workspaceId,
+            uploadedById: userId,
+            title: documentData.title || file.originalname,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            category: documentData.category,
+            tags: documentData.tags || [],
+            content: extractedContent?.text,
+            metadata: {
+              filename: storageResult.filename,
+              size: storageResult.size,
+              hash: storageResult.hash,
+              processingTime,
+              textMetadata: extractedContent?.metadata,
+              uploadedAt: new Date().toISOString(),
+            },
+            hash: storageResult.hash,
+            confidenceScore: extractedContent ? 0.9 : 0.5,
+            processingTime,
+          },
+          include: {
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            uploadedBy: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+        })
+      } catch (createError: any) {
+        // Race condition safety net — another concurrent upload of same file won
+        if (createError?.code === 'P2002' && createError?.meta?.target?.includes('hash')) {
+          const raceDocument = await prisma.document.findFirst({
+            where: { hash: storageResult.hash, uploadedById: userId },
+            include: {
+              workspace: { select: { id: true, name: true } },
+              uploadedBy: { select: { id: true, email: true } },
+            },
+          })
+          if (raceDocument) return raceDocument as any
+        }
+        throw createError
+      }
 
       // Log activity
       await prisma.userActivity.create({

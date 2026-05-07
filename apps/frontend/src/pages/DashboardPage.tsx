@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +12,6 @@ import {
   ScaleIcon,
   ArrowTrendingUpIcon,
   ClockIcon,
-  PlusIcon,
   ChevronRightIcon
 } from "@heroicons/react/24/outline"
 
@@ -38,7 +37,7 @@ export default function DashboardPage() {
     const uploadingFile = files.find((f) => f.status === "uploading")
     if (!uploadingFile) return
 
-    const interval = setInterval(() => {
+    const timeout = setTimeout(() => {
       setFiles((prevFiles) =>
         prevFiles.map((f) => {
           if (f.id === uploadingFile.id) {
@@ -54,7 +53,7 @@ export default function DashboardPage() {
       )
     }, 300)
 
-    return () => clearInterval(interval)
+    return () => clearTimeout(timeout)
   }, [files])
 
   const stats = [
@@ -179,7 +178,6 @@ export default function DashboardPage() {
             files={files}
             onFilesChange={handleFilesChange}
             onFileRemove={handleFileRemove}
-            maxFiles={10}
             maxSize={50}
           />
         </motion.div>

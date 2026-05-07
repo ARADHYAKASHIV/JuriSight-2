@@ -181,13 +181,40 @@ async function startServer() {
     await prisma.$connect()
     logger.info('Connected to database')
 
-    // Start server
-    app.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`)
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
-      if (process.env.REDIS_DISABLED === 'true') {
-        logger.warn('RUNNING WITHOUT REDIS: Document processing and advanced caching are unavailable.')
+    // Start server — with EADDRINUSE retry so tsx watch restarts don't crash
+    await new Promise<void>((resolve, reject) => {
+      const MAX_RETRIES = 5
+      const RETRY_DELAY_MS = 1200
+      let attempts = 0
+
+      const tryListen = () => {
+        const server = app.listen(PORT, () => {
+          logger.info(`Server running on port ${PORT}`)
+          logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
+          if (process.env.REDIS_DISABLED === 'true') {
+            logger.warn('RUNNING WITHOUT REDIS: Document processing and advanced caching are unavailable.')
+          }
+          resolve()
+        })
+
+        server.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            attempts++
+            if (attempts >= MAX_RETRIES) {
+              logger.error(`Port ${PORT} still in use after ${MAX_RETRIES} retries. Giving up.`)
+              reject(err)
+              return
+            }
+            logger.warn(`Port ${PORT} in use (attempt ${attempts}/${MAX_RETRIES}), retrying in ${RETRY_DELAY_MS}ms…`)
+            server.close()
+            setTimeout(tryListen, RETRY_DELAY_MS)
+          } else {
+            reject(err)
+          }
+        })
       }
+
+      tryListen()
     })
   } catch (error) {
     logger.error('Failed to start server (Critical Error):', error)

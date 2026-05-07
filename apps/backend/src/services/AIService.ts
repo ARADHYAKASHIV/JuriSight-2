@@ -5,6 +5,16 @@ import { AppError } from '@/middleware/errorHandler'
 import { logger } from '@/utils/logger'
 import { truncateToTokens, withRetry } from '@/utils/ai.utils'
 
+/** Returns true when the error is a quota / rate-limit response from any provider. */
+function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as Record<string, unknown>
+  const status = (e['status'] ?? e['statusCode']) as number | undefined
+  if (status === 429) return true
+  const msg = String(e['message'] ?? '')
+  return msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit')
+}
+
 export interface AIAnalysisResult {
   summary: string
   keyPoints: string[]
@@ -47,23 +57,40 @@ export interface EmbeddingResult {
 
 export class AIService {
   private gemini: GoogleGenerativeAI | null = null
+  private groq: OpenAI | null = null   // Groq uses the OpenAI-compatible API
   private openai: OpenAI | null = null
 
   constructor() {
-    // Initialize Gemini
+    // Initialize Gemini (primary)
     if (process.env.GEMINI_API_KEY) {
       this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
     }
 
-    // Initialize OpenAI as fallback
+    // Initialize Groq (free-tier fallback: 14,400 req/day)
+    if (process.env.GROQ_API_KEY) {
+      this.groq = new OpenAI({
+        apiKey: process.env.GROQ_API_KEY,
+        baseURL: 'https://api.groq.com/openai/v1',
+      })
+    }
+
+    // Initialize OpenAI (final fallback)
     if (process.env.OPENAI_API_KEY) {
       this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
       })
     }
 
-    if (!this.gemini && !this.openai) {
+    const providers = [
+      this.gemini ? 'Gemini' : null,
+      this.groq   ? 'Groq'   : null,
+      this.openai ? 'OpenAI' : null,
+    ].filter(Boolean)
+
+    if (providers.length === 0) {
       logger.warn('No AI service API keys configured')
+    } else {
+      logger.info(`AI providers loaded: ${providers.join(' → ')} (fallback chain)`)
     }
   }
 
@@ -71,28 +98,43 @@ export class AIService {
     const startTime = Date.now()
     
     try {
-      // Try Gemini first, fallback to OpenAI
       if (this.gemini) {
-        return await this.analyzeWithGemini(content, filename, startTime)
-      } else if (this.openai) {
-        return await this.analyzeWithOpenAI(content, filename, startTime)
-      } else {
-        throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
+        try {
+          return await this.analyzeWithGemini(content, filename, startTime)
+        } catch (geminiError) {
+          if (isRateLimitError(geminiError)) {
+            const nextProvider = this.groq ? 'Groq' : this.openai ? 'OpenAI' : null
+            if (!nextProvider) throw geminiError
+            logger.warn(`Gemini rate-limited. Falling back to ${nextProvider} for document analysis.`)
+            if (this.groq) return await this.analyzeWithGroq(content, filename, startTime)
+            return await this.analyzeWithOpenAI(content, filename, startTime)
+          }
+          throw geminiError
+        }
       }
+      if (this.groq) {
+        try {
+          return await this.analyzeWithGroq(content, filename, startTime)
+        } catch (groqError) {
+          if (isRateLimitError(groqError) && this.openai) {
+            logger.warn('Groq rate-limited. Falling back to OpenAI for document analysis.')
+            return await this.analyzeWithOpenAI(content, filename, startTime)
+          }
+          throw groqError
+        }
+      }
+      if (this.openai) return await this.analyzeWithOpenAI(content, filename, startTime)
+      throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
     } catch (error) {
       logger.error('AI analysis failed:', error)
-      
-      if (error instanceof AppError) {
-        throw error
-      }
-      
+      if (error instanceof AppError) throw error
       throw new AppError('Failed to analyze document', 500, 'AI_ANALYSIS_ERROR')
     }
   }
 
   private async analyzeWithGemini(content: string, filename: string, startTime: number): Promise<AIAnalysisResult> {
     try {
-      const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const model = this.gemini!.getGenerativeModel({ model: 'gemini-2.0-flash' })
       const truncatedContent = truncateToTokens(content, 6000)
       
       const prompt = `
@@ -135,6 +177,8 @@ export class AIService {
         }
       }
     } catch (error) {
+      // Re-throw rate-limit errors unwrapped so the outer provider-fallback logic can detect them
+      if (isRateLimitError(error)) throw error
       logger.error('Gemini analysis error:', error)
       throw new AppError('Gemini analysis failed', 500, 'GEMINI_ERROR')
     }
@@ -201,6 +245,44 @@ export class AIService {
     }
   }
 
+  private async analyzeWithGroq(content: string, filename: string, startTime: number): Promise<AIAnalysisResult> {
+    try {
+      const truncatedContent = truncateToTokens(content, 5000)
+      const response = await withRetry(() => this.groq!.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a legal document analysis assistant. Analyze documents and provide structured summaries. Always respond with valid JSON.',
+          },
+          {
+            role: 'user',
+            content: `Analyze this legal document and respond ONLY with valid JSON (no markdown):\n{\n  "summary": "2-3 sentence summary",\n  "keyPoints": ["point1", "point2"],\n  "entities": [{"text": "name", "type": "PERSON|ORG|DATE|AMOUNT", "confidence": 0.95}]\n}\n\nDocument: ${filename}\nContent: ${truncatedContent}`,
+          },
+        ],
+        max_tokens: 1500,
+        temperature: 0.3,
+      }))
+
+      const text = response.choices[0]?.message?.content || '{}'
+      // Strip markdown code fences if present
+      const json = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+
+      try {
+        const parsed = JSON.parse(json)
+        const analysis = AIAnalysisResultSchema.parse(parsed)
+        return { ...analysis, confidence: 0.82, processingTime: Date.now() - startTime }
+      } catch (parseError) {
+        logger.warn('Groq structured parse failed, applying fallback')
+        return { ...AIAnalysisResultSchema.parse({}), summary: text.substring(0, 500), confidence: 0.6, processingTime: Date.now() - startTime }
+      }
+    } catch (error) {
+      if (isRateLimitError(error)) throw error
+      logger.error('Groq analysis error:', error)
+      throw new AppError('Groq analysis failed', 500, 'GROQ_ERROR')
+    }
+  }
+
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
       if (this.openai) {
@@ -250,26 +332,42 @@ export class AIService {
   async answerQuestion(question: string, context: string): Promise<string> {
     try {
       if (this.gemini) {
-        return await this.answerWithGemini(question, context)
-      } else if (this.openai) {
-        return await this.answerWithOpenAI(question, context)
-      } else {
-        throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
+        try {
+          return await this.answerWithGemini(question, context)
+        } catch (geminiError) {
+          if (isRateLimitError(geminiError)) {
+            const nextProvider = this.groq ? 'Groq' : this.openai ? 'OpenAI' : null
+            if (!nextProvider) throw geminiError
+            logger.warn(`Gemini rate-limited. Falling back to ${nextProvider} for question answering.`)
+            if (this.groq) return await this.answerWithGroq(question, context)
+            return await this.answerWithOpenAI(question, context)
+          }
+          throw geminiError
+        }
       }
+      if (this.groq) {
+        try {
+          return await this.answerWithGroq(question, context)
+        } catch (groqError) {
+          if (isRateLimitError(groqError) && this.openai) {
+            logger.warn('Groq rate-limited. Falling back to OpenAI for question answering.')
+            return await this.answerWithOpenAI(question, context)
+          }
+          throw groqError
+        }
+      }
+      if (this.openai) return await this.answerWithOpenAI(question, context)
+      throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
     } catch (error) {
       logger.error('Question answering failed:', error)
-      
-      if (error instanceof AppError) {
-        throw error
-      }
-      
+      if (error instanceof AppError) throw error
       throw new AppError('Failed to answer question', 500, 'QUESTION_ANSWERING_ERROR')
     }
   }
 
   private async answerWithGemini(question: string, context: string): Promise<string> {
     try {
-      const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const model = this.gemini!.getGenerativeModel({ model: 'gemini-2.0-flash' })
       const truncatedContext = truncateToTokens(context, 8000)
       
       const prompt = `
@@ -287,6 +385,8 @@ export class AIService {
       const response = await result.response
       return response.text()
     } catch (error) {
+      // Re-throw rate-limit errors unwrapped so the outer provider-fallback logic can detect them
+      if (isRateLimitError(error)) throw error
       logger.error('Gemini question answering error:', error)
       throw new AppError('Gemini question answering failed', 500, 'GEMINI_QA_ERROR')
     }
@@ -304,11 +404,7 @@ export class AIService {
           },
           {
             role: 'user',
-            content: `
-              Context: ${truncatedContext}
-              
-              Question: ${question}
-            `,
+            content: `Context: ${truncatedContext}\n\nQuestion: ${question}`,
           },
         ],
         max_tokens: 500,
@@ -322,29 +418,72 @@ export class AIService {
     }
   }
 
+  private async answerWithGroq(question: string, context: string): Promise<string> {
+    try {
+      const truncatedContext = truncateToTokens(context, 6000)
+      const response = await withRetry(() => this.groq!.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful legal assistant that answers questions based on provided document context. If the answer cannot be found in the context, clearly state that.',
+          },
+          {
+            role: 'user',
+            content: `Context: ${truncatedContext}\n\nQuestion: ${question}`,
+          },
+        ],
+        max_tokens: 600,
+        temperature: 0.3,
+      }))
+
+      return response.choices[0]?.message?.content || 'I could not generate an answer to your question.'
+    } catch (error) {
+      if (isRateLimitError(error)) throw error
+      logger.error('Groq question answering error:', error)
+      throw new AppError('Groq question answering failed', 500, 'GROQ_QA_ERROR')
+    }
+  }
+
   async compareDocuments(doc1Content: string, doc2Content: string): Promise<any> {
     try {
       if (this.gemini) {
-        return await this.compareWithGemini(doc1Content, doc2Content)
-      } else if (this.openai) {
-        return await this.compareWithOpenAI(doc1Content, doc2Content)
-      } else {
-        throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
+        try {
+          return await this.compareWithGemini(doc1Content, doc2Content)
+        } catch (geminiError) {
+          if (isRateLimitError(geminiError)) {
+            const nextProvider = this.groq ? 'Groq' : this.openai ? 'OpenAI' : null
+            if (!nextProvider) throw geminiError
+            logger.warn(`Gemini rate-limited. Falling back to ${nextProvider} for document comparison.`)
+            if (this.groq) return await this.compareWithGroq(doc1Content, doc2Content)
+            return await this.compareWithOpenAI(doc1Content, doc2Content)
+          }
+          throw geminiError
+        }
       }
+      if (this.groq) {
+        try {
+          return await this.compareWithGroq(doc1Content, doc2Content)
+        } catch (groqError) {
+          if (isRateLimitError(groqError) && this.openai) {
+            logger.warn('Groq rate-limited. Falling back to OpenAI for document comparison.')
+            return await this.compareWithOpenAI(doc1Content, doc2Content)
+          }
+          throw groqError
+        }
+      }
+      if (this.openai) return await this.compareWithOpenAI(doc1Content, doc2Content)
+      throw new AppError('No AI service available', 503, 'AI_SERVICE_UNAVAILABLE')
     } catch (error) {
       logger.error('Document comparison failed:', error)
-      
-      if (error instanceof AppError) {
-        throw error
-      }
-      
+      if (error instanceof AppError) throw error
       throw new AppError('Failed to compare documents', 500, 'DOCUMENT_COMPARISON_ERROR')
     }
   }
 
   private async compareWithGemini(doc1Content: string, doc2Content: string): Promise<any> {
     try {
-      const model = this.gemini!.getGenerativeModel({ model: 'gemini-pro' })
+      const model = this.gemini!.getGenerativeModel({ model: 'gemini-2.0-flash' })
       const t1 = truncateToTokens(doc1Content, 4000)
       const t2 = truncateToTokens(doc2Content, 4000)
       
@@ -384,8 +523,48 @@ export class AIService {
         })
       }
     } catch (error) {
+      // Re-throw rate-limit errors unwrapped so the outer provider-fallback logic can detect them
+      if (isRateLimitError(error)) throw error
       logger.error('Gemini comparison error:', error)
       throw new AppError('Gemini comparison failed', 500, 'GEMINI_COMPARISON_ERROR')
+    }
+  }
+
+  private async compareWithGroq(doc1Content: string, doc2Content: string): Promise<any> {
+    try {
+      const t1 = truncateToTokens(doc1Content, 3500)
+      const t2 = truncateToTokens(doc2Content, 3500)
+
+      const response = await withRetry(() => this.groq!.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a legal document comparison assistant. Compare documents and provide structured analysis. Always respond with valid JSON only, no markdown.',
+          },
+          {
+            role: 'user',
+            content: `Compare these two legal documents and respond ONLY with valid JSON:\n{"similarityScore": 0.85, "differences": ["..."], "commonClauses": ["..."], "changes": ["..."]}\n\nDocument 1: ${t1}\n\nDocument 2: ${t2}`,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.3,
+      }))
+
+      const text = response.choices[0]?.message?.content || '{}'
+      const json = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+
+      try {
+        const parsed = JSON.parse(json)
+        return DocumentComparisonSchema.parse(parsed)
+      } catch (parseError) {
+        logger.warn('Groq comparison structure error, returning fallback')
+        return DocumentComparisonSchema.parse({ similarityScore: 0.5, differences: ['Analysis could not be completed'], commonClauses: [], changes: [] })
+      }
+    } catch (error) {
+      if (isRateLimitError(error)) throw error
+      logger.error('Groq comparison error:', error)
+      throw new AppError('Groq comparison failed', 500, 'GROQ_COMPARISON_ERROR')
     }
   }
 

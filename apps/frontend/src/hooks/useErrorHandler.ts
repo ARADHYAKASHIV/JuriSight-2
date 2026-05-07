@@ -67,11 +67,18 @@ export const useErrorHandler = () => {
       switch (status) {
         case 400:
           return handleError(data?.error?.message || 'Invalid request', 'API_BAD_REQUEST')
-        case 401:
-          showToast('Please sign in to continue', 'error')
-          // Redirect to login if needed
-          window.location.href = '/login'
+        case 401: {
+          const hasToken = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+          if (!hasToken) {
+            // Truly unauthenticated — redirect to login
+            showToast('Please sign in to continue', 'error')
+            window.location.href = '/login'
+          } else {
+            // Token exists but was rejected — axios interceptor will handle refresh/redirect
+            showToast('Session expired. Refreshing…', 'info')
+          }
           return
+        }
         case 403:
           return handleError('You do not have permission to perform this action', 'API_FORBIDDEN')
         case 404:

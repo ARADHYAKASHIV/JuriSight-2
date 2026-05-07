@@ -17,12 +17,8 @@ export const NotFoundPage: React.FC = () => {
         </p>
         
         <div className="space-y-3">
-          <Button variant="legal" className="w-full" asChild>
-            <a href="/dashboard">Return to Dashboard</a>
-          </Button>
-          <Button variant="outline" className="w-full" asChild>
-            <a href="/documents">Browse Documents</a>
-          </Button>
+          <Button variant="default" className="w-full" render={<a href="/dashboard">Return to Dashboard</a>} />
+          <Button variant="outline" className="w-full" render={<a href="/documents">Browse Documents</a>} />
         </div>
         
         <div className="text-center">

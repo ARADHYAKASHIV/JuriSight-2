@@ -18,7 +18,8 @@ export const ChatPage: React.FC = () => {
     isLoading,
     isSendingMessage,
     createSession,
-    sendMessage,
+
+    sendMessageToSession,
     switchSession,
     currentSession
   } = useChat({ documentId })
@@ -28,18 +29,18 @@ export const ChatPage: React.FC = () => {
   const handleSend = async () => {
     if (!inputValue.trim() || isSendingMessage) return
 
-    let currentSessionId = currentSession?.id
+    let activeSessionId = currentSession?.id
 
     // If no active session but we have a documentId, create one first
-    if (!currentSessionId && documentId) {
+    if (!activeSessionId && documentId) {
       try {
         const newSession = await createSession('New Conversation', documentId)
-        currentSessionId = newSession.id
+        activeSessionId = newSession.id
       } catch (error) {
         console.error("Failed to create session", error)
         return
       }
-    } else if (!currentSessionId) {
+    } else if (!activeSessionId) {
       // No documentId and no active session - we can't send a message
       console.warn("Please select a document to start chatting.")
       return
@@ -48,7 +49,8 @@ export const ChatPage: React.FC = () => {
     const msg = inputValue
     setInputValue('')
     try {
-      await sendMessage(msg)
+      // Use sendMessageToSession with explicit ID to avoid stale closure
+      await sendMessageToSession(msg, activeSessionId)
     } catch (error) {
       console.error("Failed to send message", error)
       setInputValue(msg) // restore input on failure

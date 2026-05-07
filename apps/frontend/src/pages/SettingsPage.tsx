@@ -1,8 +1,8 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { User, Settings, Shield, CreditCard, Key, Bell } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 
 export const SettingsPage: React.FC = () => {
   return (
@@ -17,15 +17,15 @@ export const SettingsPage: React.FC = () => {
           <Card className="p-2 border-border bg-card/40 backdrop-blur-sm">
             <div className="space-y-1">
               {[
-                { name: 'Profile', icon: '👤', active: true },
-                { name: 'Preferences', icon: '⚙️', active: false },
-                { name: 'Security', icon: '🛡️', active: false },
-                { name: 'Billing', icon: '💳', active: false },
-                { name: 'API Key', icon: '🔑', active: false },
-                { name: 'Notifications', icon: '🔔', active: false }
+                { name: 'Profile', icon: <User className="w-5 h-5 mr-3" />, active: true },
+                { name: 'Preferences', icon: <Settings className="w-5 h-5 mr-3" />, active: false },
+                { name: 'Security', icon: <Shield className="w-5 h-5 mr-3" />, active: false },
+                { name: 'Billing', icon: <CreditCard className="w-5 h-5 mr-3" />, active: false },
+                { name: 'API Key', icon: <Key className="w-5 h-5 mr-3" />, active: false },
+                { name: 'Notifications', icon: <Bell className="w-5 h-5 mr-3" />, active: false }
               ].map((item) => (
                 <Button key={item.name} variant={item.active ? 'secondary' : 'ghost'} className="w-full justify-start font-medium h-10">
-                  <span className="mr-3 text-lg">{item.icon}</span>
+                  {item.icon}
                   {item.name}
                 </Button>
               ))}

@@ -65,8 +65,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check for session timeout on app activity
   useEffect(() => {
+    let lastActivityUpdate = Date.now()
     const handleActivity = () => {
-      if (isAuthenticated) {
+      const now = Date.now()
+      // Throttle updates to once per minute to avoid excessive re-renders
+      if (isAuthenticated && (now - lastActivityUpdate > 60000)) {
+        lastActivityUpdate = now
         updateLastActivity()
         checkSessionTimeout()
       }

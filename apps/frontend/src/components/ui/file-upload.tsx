@@ -125,7 +125,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const getStatusBadge = (status: FileItem['status']) => {
     switch (status) {
       case 'uploading':
-        return <Badge variant="info">Uploading</Badge>
+        return <Badge variant="secondary">Uploading</Badge>
       case 'success':
         return <Badge variant="success">Complete</Badge>
       case 'error':
