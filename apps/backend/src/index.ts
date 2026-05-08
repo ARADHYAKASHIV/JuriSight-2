@@ -30,7 +30,7 @@ import { logger } from '@/utils/logger'
 import '@/queues/documentQueue'
 
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 8000
 
 // Security middleware
 app.use(helmet({
