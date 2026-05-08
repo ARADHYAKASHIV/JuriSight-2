@@ -6,8 +6,8 @@
   "scripts": {
     "predev": "node scripts/kill-port.js",
     "dev": "tsx watch src/register.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc --noEmit",
+    "start": "npx tsx src/register.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
