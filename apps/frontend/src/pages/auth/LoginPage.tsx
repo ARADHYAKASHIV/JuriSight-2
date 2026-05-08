@@ -90,7 +90,7 @@ const LoginPage: React.FC = () => {
 
               {/* Google Sign-In */}
               <a
-                href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/google`}
+                href={`${import.meta.env.VITE_API_URL || 'https://preliminary-pamela-aradhyakashiv-223996e0.koyeb.app'}/api/auth/google`}
                 className="flex items-center justify-center gap-3 w-full h-11 px-4 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium text-foreground"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
