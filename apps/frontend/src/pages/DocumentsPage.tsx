@@ -77,7 +77,13 @@ export const DocumentsPage: React.FC = () => {
         setUploadedFiles(prev => prev.map(x => x.id === f.id ? {...x, progress: 50} : x))
         const res = await documentApi.uploadDocument(targetWorkspaceId, f.file)
         if (res.success && res.data) {
-          setDocuments(prev => [res.data as unknown as DocItem, ...prev])
+          const newDoc = res.data as unknown as DocItem
+          // Upsert: replace if already in list (deduplicated upload), otherwise prepend
+          setDocuments(prev => {
+            const exists = prev.some(d => d.id === newDoc.id)
+            if (exists) return prev.map(d => d.id === newDoc.id ? newDoc : d)
+            return [newDoc, ...prev]
+          })
           setUploadedFiles(prev => prev.map(x => x.id === f.id ? {...x, progress: 100, status: 'completed' as const} : x))
         }
       } catch (e) {
