@@ -487,15 +487,15 @@ export class DocumentService {
           metadata: {
             documentTitle: document.title,
             analysisType: 'async_ai_analysis',
-            jobId: job.id,
+            jobId: job?.id,
           },
         },
       })
 
       return {
-        jobId: job.id,
-        status: 'queued',
-        message: 'Document analysis queued successfully. This may take a few moments.',
+        jobId: job?.id,
+        status: job ? 'queued' : 'bypassed',
+        message: job ? 'Document analysis queued successfully. This may take a few moments.' : 'Queue bypassed.',
       }
     } catch (error) {
       logger.error('Error queuing document analysis:', error)

@@ -197,8 +197,8 @@ export class ComparisonService {
         throw new AppError('One or both documents not found or access denied', 404, 'DOCUMENTS_NOT_FOUND')
       }
 
-      const doc1 = documents.find(d => d.id === doc1Id)!
-      const doc2 = documents.find(d => d.id === doc2Id)!
+      const doc1 = documents.find((d: any) => d.id === doc1Id)!
+      const doc2 = documents.find((d: any) => d.id === doc2Id)!
 
       // Check if comparison already exists
       const existingComparison = await prisma.documentComparison.findFirst({
@@ -223,7 +223,7 @@ export class ComparisonService {
         data: {
           doc1Id,
           doc2Id,
-          results: analysisResult,
+          results: analysisResult as any,
           similarityScore: analysisResult.similarityScore,
           performedById: userId,
         },
@@ -382,7 +382,7 @@ export class ComparisonService {
     }
   }
 
-  async getComparisonById(comparisonId: string, userId: string, userRole: UserRole): Promise<DocumentComparison | null> {
+  async getComparisonById(comparisonId: string, userId: string, userRole: UserRole): Promise<any> {
     try {
       const whereClause: any = { id: comparisonId }
 
@@ -505,7 +505,7 @@ export class ComparisonService {
     }
   }
 
-  async reanalyzeComparison(comparisonId: string, userId: string, userRole: UserRole): Promise<DocumentComparison> {
+  async reanalyzeComparison(comparisonId: string, userId: string, userRole: UserRole): Promise<any> {
     try {
       const comparison = await this.getComparisonById(comparisonId, userId, userRole)
       if (!comparison) {
@@ -525,8 +525,8 @@ export class ComparisonService {
         },
       })
 
-      const doc1 = documents.find(d => d.id === comparison.document1.id)!
-      const doc2 = documents.find(d => d.id === comparison.document2.id)!
+      const doc1 = documents.find((d: any) => d.id === comparison.document1.id)!
+      const doc2 = documents.find((d: any) => d.id === comparison.document2.id)!
 
       // Perform new analysis
       const analysisResult = await this.performComparison(doc1, doc2)
@@ -535,7 +535,7 @@ export class ComparisonService {
       const updatedComparison = await prisma.documentComparison.update({
         where: { id: comparisonId },
         data: {
-          results: analysisResult,
+          results: analysisResult as any,
           similarityScore: analysisResult.similarityScore,
         },
         include: {

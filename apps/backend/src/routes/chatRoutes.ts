@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Response, NextFunction } from 'express'
 import { body, query, validationResult } from 'express-validator'
 import { ChatService } from '@/services/ChatService'
 import { authMiddleware, AuthenticatedRequest } from '@/middleware/authMiddleware'
@@ -13,7 +13,7 @@ router.get('/sessions', [
   query('documentId').optional().isString(),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -53,7 +53,7 @@ router.get('/sessions', [
 router.post('/sessions', [
   body('documentId').isString().notEmpty(),
   body('title').optional().isString().trim(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -77,7 +77,7 @@ router.post('/sessions', [
 })
 
 // Get chat session by ID
-router.get('/sessions/:id', async (req: AuthenticatedRequest, res, next) => {
+router.get('/sessions/:id', async (req: any, res: any, next: any) => {
   try {
     const session = await chatService.getChatSessionById(
       req.params.id,
@@ -102,7 +102,7 @@ router.get('/sessions/:id', async (req: AuthenticatedRequest, res, next) => {
 router.get('/sessions/:id/messages', [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -141,7 +141,7 @@ router.get('/sessions/:id/messages', [
 router.post('/messages', [
   body('sessionId').isString().notEmpty(),
   body('content').isString().trim().isLength({ min: 1 }),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -166,7 +166,7 @@ router.post('/messages', [
 })
 
 // Delete chat session
-router.delete('/sessions/:id', async (req: AuthenticatedRequest, res, next) => {
+router.delete('/sessions/:id', async (req: any, res: any, next: any) => {
   try {
     await chatService.deleteChatSession(
       req.params.id,
@@ -189,7 +189,7 @@ router.delete('/sessions/:id', async (req: AuthenticatedRequest, res, next) => {
 router.put('/sessions/:id', [
   body('title').optional().isString().trim(),
   body('context').optional().isObject(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {

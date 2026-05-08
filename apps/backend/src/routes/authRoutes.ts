@@ -177,7 +177,7 @@ router.get('/profile', authMiddleware, async (req: Request, res: Response, next:
   const authReq = req as AuthenticatedRequest
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: authReq.user!.id },
       select: {
         id: true,
         email: true,
@@ -237,7 +237,7 @@ router.put('/profile', authMiddleware, [
     }
 
     const user = await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: authReq.user!.id },
       data: updateData,
       select: {
         id: true,

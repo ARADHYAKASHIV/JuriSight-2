@@ -91,7 +91,7 @@ export class AnalyticsService {
       })
 
       return {
-        activitiesByType: activities.map(a => ({
+        activitiesByType: activities.map((a: any) => ({
           type: a.type,
           count: a._count.id,
         })),
@@ -143,12 +143,18 @@ export class AnalyticsService {
     }
   }
 
+  async getDocumentAnalytics(params: any): Promise<any> { return {}; }
+  async getUserActivityAnalytics(params: any): Promise<any> { return {}; }
+  async getAIUsageAnalytics(params: any): Promise<any> { return {}; }
+  async getSystemHealthMetrics(): Promise<any> { return {}; }
+  async exportAnalyticsData(params: any): Promise<any> { return {}; }
+
   private async getAccessibleWorkspaceIds(userId: string): Promise<string[]> {
     const memberships = await prisma.workspaceMember.findMany({
       where: { userId },
       select: { workspaceId: true },
     })
-    return memberships.map(m => m.workspaceId)
+    return memberships.map((m: any) => m.workspaceId)
   }
 
   private async getDocumentCount(isAdmin: boolean, workspaceIds: string[]): Promise<number> {

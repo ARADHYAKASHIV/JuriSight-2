@@ -13,7 +13,7 @@ router.get('/', [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('documentId').optional().isString(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -53,7 +53,7 @@ router.get('/', [
 router.post('/', [
   body('doc1Id').isString().notEmpty(),
   body('doc2Id').isString().notEmpty(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -78,7 +78,7 @@ router.post('/', [
 })
 
 // Get comparison by ID
-router.get('/:id', async (req: AuthenticatedRequest, res, next) => {
+router.get('/:id', async (req: any, res: any, next: any) => {
   try {
     const comparison = await comparisonService.getComparisonById(
       req.params.id,
@@ -100,7 +100,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Delete comparison
-router.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
+router.delete('/:id', async (req: any, res: any, next: any) => {
   try {
     await comparisonService.deleteComparison(
       req.params.id,
@@ -120,7 +120,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Get comparison analysis
-router.get('/:id/analysis', async (req: AuthenticatedRequest, res, next) => {
+router.get('/:id/analysis', async (req: any, res: any, next: any) => {
   try {
     const analysis = await comparisonService.getComparisonAnalysis(
       req.params.id,
@@ -138,7 +138,7 @@ router.get('/:id/analysis', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Regenerate comparison analysis
-router.post('/:id/reanalyze', async (req: AuthenticatedRequest, res, next) => {
+router.post('/:id/reanalyze', async (req: any, res: any, next: any) => {
   try {
     const comparison = await comparisonService.reanalyzeComparison(
       req.params.id,

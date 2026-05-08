@@ -9,7 +9,7 @@ const router = Router()
 const analyticsService = new AnalyticsService()
 
 // Get dashboard metrics
-router.get('/dashboard', async (req: AuthenticatedRequest, res, next) => {
+router.get('/dashboard', async (req: any, res: any, next: any) => {
   try {
     const metrics = await analyticsService.getDashboardMetrics(
       req.user!.id,
@@ -30,7 +30,7 @@ router.get('/usage', [
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('workspaceId').optional().isString(),
   query('userId').optional().isString(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -64,7 +64,7 @@ router.get('/usage', [
 router.get('/performance', [
   query('period').optional().isIn(['7d', '30d', '90d']),
   query('metric').optional().isIn(['response_time', 'processing_time', 'error_rate', 'throughput']),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -97,7 +97,7 @@ router.get('/documents', [
   query('workspaceId').optional().isString(),
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('groupBy').optional().isIn(['category', 'user', 'workspace', 'date']),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -133,7 +133,7 @@ router.get('/activity', [
   query('userId').optional().isString(),
   query('period').optional().isIn(['7d', '30d', '90d']),
   query('activityType').optional().isString(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -169,7 +169,7 @@ router.get('/activity', [
 router.get('/ai-usage', requireRole([UserRole.ADMIN]), [
   query('period').optional().isIn(['7d', '30d', '90d']),
   query('service').optional().isIn(['gemini', 'openai', 'embeddings']),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -196,7 +196,7 @@ router.get('/ai-usage', requireRole([UserRole.ADMIN]), [
 })
 
 // Get system health metrics (admin only)
-router.get('/system-health', requireRole([UserRole.ADMIN]), async (req: AuthenticatedRequest, res, next) => {
+router.get('/system-health', requireRole([UserRole.ADMIN]), async (req: any, res: any, next: any) => {
   try {
     const health = await analyticsService.getSystemHealthMetrics()
 
@@ -215,7 +215,7 @@ router.get('/export', [
   query('format').optional().isIn(['json', 'csv']),
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('workspaceId').optional().isString(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {

@@ -145,7 +145,7 @@ export class VectorService {
       orderBy: { chunkIndex: 'asc' },
     })
 
-    return results.map(result => ({
+    return results.map((result: any) => ({
       documentId: result.documentId,
       chunkIndex: result.chunkIndex,
       content: result.content,
@@ -161,7 +161,7 @@ export class VectorService {
         orderBy: { chunkIndex: 'asc' },
       })
 
-      return chunks.map(chunk => ({
+      return chunks.map((chunk: any) => ({
         documentId: chunk.documentId,
         chunkIndex: chunk.chunkIndex,
         content: chunk.content,
@@ -213,7 +213,7 @@ export class VectorService {
         totalChunks: stats._count.id,
         averageChunkIndex: stats._avg.chunkIndex,
         documentsWithEmbeddings: documents.length,
-        chunksPerDocument: documents.map(doc => ({
+        chunksPerDocument: documents.map((doc: any) => ({
           documentId: doc.documentId,
           chunkCount: doc._count.id,
         })),

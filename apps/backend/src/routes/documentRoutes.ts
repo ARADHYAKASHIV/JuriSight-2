@@ -129,7 +129,7 @@ router.post('/', upload.single('file'), [
 })
 
 // Get document by ID
-router.get('/:id', async (req: AuthenticatedRequest, res, next) => {
+router.get('/:id', async (req: any, res: any, next: any) => {
   try {
     const document = await documentService.getDocumentById(req.params.id, req.user!.id, req.user!.role)
     
@@ -151,7 +151,7 @@ router.put('/:id', [
   body('title').optional().isString().trim(),
   body('category').optional().isIn(Object.values(DocumentCategory)),
   body('tags').optional().isArray(),
-], async (req: AuthenticatedRequest, res, next) => {
+], async (req: any, res: any, next: any) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
@@ -177,7 +177,7 @@ router.put('/:id', [
 })
 
 // Delete document
-router.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
+router.delete('/:id', async (req: any, res: any, next: any) => {
   try {
     await documentService.deleteDocument(req.params.id, req.user!.id, req.user!.role)
 
@@ -193,7 +193,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Download document
-router.get('/:id/download', async (req: AuthenticatedRequest, res, next) => {
+router.get('/:id/download', async (req: any, res: any, next: any) => {
   try {
     const result = await documentService.downloadDocument(req.params.id, req.user!.id, req.user!.role)
     
@@ -206,7 +206,7 @@ router.get('/:id/download', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Analyze document
-router.post('/:id/analyze', async (req: AuthenticatedRequest, res, next) => {
+router.post('/:id/analyze', async (req: any, res: any, next: any) => {
   try {
     const result = await documentService.analyzeDocument(req.params.id, req.user!.id, req.user!.role)
 
@@ -220,7 +220,7 @@ router.post('/:id/analyze', async (req: AuthenticatedRequest, res, next) => {
 })
 
 // Get document analysis status
-router.get('/:id/analysis', async (req: AuthenticatedRequest, res, next) => {
+router.get('/:id/analysis', async (req: any, res: any, next: any) => {
   try {
     const analysis = await documentService.getDocumentAnalysis(req.params.id, req.user!.id, req.user!.role)
 
