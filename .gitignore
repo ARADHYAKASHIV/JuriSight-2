@@ -207,3 +207,7 @@ yarn-error.log*
 # Get shit done
 .planning/
 .agent/
+
+# Local debugging scratchpads
+startup_*.txt
+testreadme.md
