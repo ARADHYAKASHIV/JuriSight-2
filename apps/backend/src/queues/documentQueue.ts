@@ -20,12 +20,12 @@ const initQueue = () => {
   try {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
     
-    // Check if we should even try (e.g. if we know localhost is down)
-    if (redisUrl.includes('localhost')) {
+    // Check if we should even try (e.g. if we know localhost is down in dev)
+    if (process.env.NODE_ENV === 'development' && redisUrl.includes('localhost')) {
       // In a real dev environment, we might want to try once, 
       // but here we've seen it fail repeatedly. 
       // For this specific session, I'll force disable it if it's localhost.
-      logger.warn('Local Redis detected but appears unavailable. Skipping DocumentQueue to prevent crash.')
+      logger.warn('Local Redis detected in development but appears unavailable. Skipping DocumentQueue to prevent crash.')
       process.env.REDIS_DISABLED = 'true'
       return
     }
